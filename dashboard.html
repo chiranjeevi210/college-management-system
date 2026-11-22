@@ -48,8 +48,8 @@
       </thead>
       <tbody id="student-table-body"></tbody>
     </table>
-  </div>
-<hr style="margin: 2rem 0; border: 0; border-top: 1px solid #e2e8f0;" />
+
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid #e2e8f0;" />
 
     <!-- Notices Section -->
     <h3>College Notices & Announcements</h3>
@@ -75,62 +75,20 @@
       </thead>
       <tbody id="courses-table-body"></tbody>
     </table>
+  </div>
+
   <script src="js/config.js"></script>
-  async function loadNotices() {
-      const { data } = await supabaseClient.from('notices').select('*').order('created_at', { ascending: false });
-      document.getElementById('notices-list').innerHTML = (data || []).map(n => `
-        <div style="background:#f1f5f9; padding:0.75rem 1rem; border-radius:6px; margin-bottom:0.5rem;">
-          <strong>${n.title}</strong>
-          <p style="margin:0.25rem 0 0; font-size:0.9rem;">${n.content}</p>
-        </div>
-      `).join('');
-    }
-
-    document.getElementById('notice-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await supabaseClient.from('notices').insert([{
-        title: document.getElementById('notice-title').value,
-        content: document.getElementById('notice-content').value
-      }]);
-      e.target.reset();
-      loadNotices();
-    });
-
-    async function loadCourses() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const { data: courses } = await supabaseClient.from('courses').select('*');
-      const { data: enrolled } = await supabaseClient.from('enrollments').select('course_code').eq('user_id', session.user.id);
-      const enrolledCodes = new Set((enrolled || []).map(e => e.course_code));
-
-      document.getElementById('courses-table-body').innerHTML = (courses || []).map(c => {
-        const isRegistered = enrolledCodes.has(c.course_code);
-        return `
-          <tr>
-            <td>${c.course_code}</td>
-            <td>${c.course_name}</td>
-            <td>${c.credits}</td>
-            <td>
-              ${isRegistered
-                ? `<span style="color:#16a34a; font-weight:bold;">Registered</span>`
-                : `<button onclick="registerCourse('${c.course_code}')">Register</button>`}
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    async function registerCourse(courseCode) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const { error } = await supabaseClient.from('enrollments').insert([{ user_id: session.user.id, course_code: courseCode }]);
-      if (error) alert(error.message);
-      else loadCourses();
-    }
   <script>
     // Protect route: redirect to login if no active session
     async function checkAuth() {
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) window.location.href = 'index.html';
-      else loadStudents();
+      if (!session) {
+        window.location.href = 'index.html';
+      } else {
+        loadStudents();
+        loadNotices();
+        loadCourses();
+      }
     }
 
     // Fetch and display students
@@ -139,7 +97,7 @@
       if (error) return console.error(error);
 
       const tbody = document.getElementById('student-table-body');
-      tbody.innerHTML = data.map(s => `
+      tbody.innerHTML = (data || []).map(s => `
         <tr>
           <td>${s.roll_number}</td>
           <td>${s.full_name}</td>
@@ -168,6 +126,63 @@
         loadStudents();
       }
     });
+
+    // Fetch and display notices
+    async function loadNotices() {
+      const { data } = await supabaseClient.from('notices').select('*').order('created_at', { ascending: false });
+      document.getElementById('notices-list').innerHTML = (data || []).map(n => `
+        <div style="background:#f1f5f9; padding:0.75rem 1rem; border-radius:6px; margin-bottom:0.5rem;">
+          <strong>${n.title}</strong>
+          <p style="margin:0.25rem 0 0; font-size:0.9rem;">${n.content}</p>
+        </div>
+      `).join('');
+    }
+
+    // Post a new notice (admin only via RLS)
+    document.getElementById('notice-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { error } = await supabaseClient.from('notices').insert([{
+        title: document.getElementById('notice-title').value,
+        content: document.getElementById('notice-content').value
+      }]);
+      if (error) alert('Error: ' + error.message);
+      else {
+        e.target.reset();
+        loadNotices();
+      }
+    });
+
+    // Fetch courses and user enrollment status
+    async function loadCourses() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const { data: courses } = await supabaseClient.from('courses').select('*');
+      const { data: enrolled } = await supabaseClient.from('enrollments').select('course_code').eq('user_id', session.user.id);
+      const enrolledCodes = new Set((enrolled || []).map(e => e.course_code));
+
+      document.getElementById('courses-table-body').innerHTML = (courses || []).map(c => {
+        const isRegistered = enrolledCodes.has(c.course_code);
+        return `
+          <tr>
+            <td>${c.course_code}</td>
+            <td>${c.course_name}</td>
+            <td>${c.credits}</td>
+            <td>
+              ${isRegistered
+                ? `<span style="color:#16a34a; font-weight:bold;">Registered</span>`
+                : `<button onclick="registerCourse('${c.course_code}')">Register</button>`}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Register for a course
+    async function registerCourse(courseCode) {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      const { error } = await supabaseClient.from('enrollments').insert([{ user_id: session.user.id, course_code: courseCode }]);
+      if (error) alert(error.message);
+      else loadCourses();
+    }
 
     async function logout() {
       await supabaseClient.auth.signOut();

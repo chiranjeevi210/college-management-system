@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>College Management System - Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 360px; }
+    h2 { margin-top: 0; color: #1e293b; text-align: center; }
+    input, button { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border-radius: 6px; box-sizing: border-box; }
+    input { border: 1px solid #cbd5e1; }
+    button { background: #2563eb; color: white; border: none; font-weight: bold; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    #error-msg { color: #dc2626; font-size: 0.875rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>CMS Portal Login</h2>
+    <form id="login-form">
+      <input type="email" id="email" placeholder="College Email" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="submit">Sign In</button>
+    </form>
+    <p id="error-msg"></p>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        document.getElementById('error-msg').textContent = error.message;
+      } else {
+        window.location.href = 'dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>

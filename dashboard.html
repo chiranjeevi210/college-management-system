@@ -3,193 +3,343 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CMS Dashboard</title>
+  <title>Autonomous University ERP</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem; color: #1e293b; }
-    .header { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 1.5rem; }
-    .container { max-width: 900px; margin: 0 auto; background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
-    input, button { padding: 0.6rem; border-radius: 6px; border: 1px solid #cbd5e1; }
-    button { background: #2563eb; color: white; border: none; cursor: pointer; font-weight: 600; }
-    .logout-btn { background: #ef4444; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    :root { --primary: #1e3a8a; --accent: #2563eb; --bg: #f1f5f9; --card: #ffffff; --border: #cbd5e1; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); margin: 0; color: #0f172a; }
+    .topbar { background: var(--primary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .topbar h1 { margin: 0; font-size: 1.25rem; }
+    .role-pill { background: rgba(255,255,255,0.2); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-left: 0.75rem; }
+    .nav-tabs { background: white; border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; gap: 0.5rem; overflow-x: auto; }
+    .tab-btn { background: none; border: none; padding: 1rem 1.25rem; font-weight: 600; color: #475569; cursor: pointer; border-bottom: 3px solid transparent; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+    .panel { display: none; background: var(--card); padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .panel.active { display: block; }
+    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+    input, select, button { padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.9rem; }
+    button.btn-primary { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; }
+    button.btn-danger { background: #dc2626; color: white; border: none; cursor: pointer; }
+    button.btn-success { background: #16a34a; color: white; border: none; font-weight: 600; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
     th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
-    th { background: #f1f5f9; }
+    th { background: #f8fafc; font-weight: 600; }
+    .status-ok { color: #16a34a; font-weight: 700; }
+    .status-warn { color: #d97706; font-weight: 700; }
+    .status-bad { color: #dc2626; font-weight: 700; }
+    .hall-ticket-box { border: 2px solid #1e293b; padding: 2rem; border-radius: 4px; background: white; margin-top: 1rem; }
+    @media print {
+      .topbar, .nav-tabs, .no-print { display: none !important; }
+      body { background: white; }
+      .main { margin: 0; max-width: 100%; }
+      .panel { box-shadow: none; padding: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h2>College Management Dashboard</h2>
-    <button class="logout-btn" onclick="logout()">Logout</button>
+  <div class="topbar">
+    <div style="display:flex; align-items:center;">
+      <h1>Autonomous University ERP (Regulation R26)</h1>
+      <span id="role-badge" class="role-pill">Loading...</span>
+    </div>
+    <button class="btn-danger" onclick="logout()">Logout</button>
   </div>
 
-  <div class="container">
-    <h3>Add Student Record</h3>
-    <form id="student-form" class="form-grid">
-      <input type="text" id="roll_number" placeholder="Roll No (e.g., CS102)" required />
-      <input type="text" id="full_name" placeholder="Full Name" required />
-      <input type="text" id="department" placeholder="Department" required />
-      <input type="number" step="0.1" id="attendance_pct" placeholder="Attendance %" required />
-      <input type="number" step="0.1" id="gpa" placeholder="GPA" required />
-      <button type="submit">Add Student</button>
-    </form>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('students-tab', this)">1. Admissions & Directory</button>
+    <button class="tab-btn" onclick="switchTab('attendance-tab', this)">2. Attendance & Detention</button>
+    <button class="tab-btn" onclick="switchTab('exams-tab', this)">3. CoE Exams & SGPA</button>
+    <button class="tab-btn" onclick="switchTab('fees-tab', this)">4. Fee & No-Dues</button>
+    <button class="tab-btn" onclick="switchTab('hallticket-tab', this)">5. Hall Ticket & Grade Card</button>
+    <button class="tab-btn" onclick="switchTab('notices-tab', this)">6. Academic Circulars</button>
+  </div>
 
-    <h3>Enrolled Students</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Roll No</th>
-          <th>Name</th>
-          <th>Department</th>
-          <th>Attendance</th>
-          <th>GPA</th>
-        </tr>
-      </thead>
-      <tbody id="student-table-body"></tbody>
-    </table>
+  <div class="main">
+    <!-- TAB 1: STUDENTS DIRECTORY -->
+    <div id="students-tab" class="panel active">
+      <h3>Student Enrollment Registry</h3>
+      <form id="student-form" class="grid-form staff-only">
+        <input type="text" id="roll_number" placeholder="Roll No (e.g., 26A91A0501)" required />
+        <input type="text" id="full_name" placeholder="Full Name" required />
+        <select id="department" required>
+          <option value="CSE">CSE</option>
+          <option value="AIML">AIML</option>
+          <option value="ECE">ECE</option>
+        </select>
+        <input type="number" step="0.1" id="attendance_pct" placeholder="Attendance %" required />
+        <input type="number" step="0.01" id="gpa" placeholder="CGPA (0-10)" max="10" required />
+        <button type="submit" class="btn-primary">Enroll Student</button>
+      </form>
+      <table>
+        <thead>
+          <tr><th>Roll No</th><th>Student Name</th><th>Dept</th><th>Attendance</th><th>Eligibility</th><th>CGPA</th></tr>
+        </thead>
+        <tbody id="student-table-body"></tbody>
+      </table>
+    </div>
 
-    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid #e2e8f0;" />
+    <!-- TAB 2: ATTENDANCE & DETENTION -->
+    <div id="attendance-tab" class="panel">
+      <h3>Period-Wise Attendance Logger</h3>
+      <form id="att-form" class="grid-form staff-only">
+        <input type="text" id="att-roll" placeholder="Student Roll No" required />
+        <select id="att-course"></select>
+        <input type="number" id="att-period" placeholder="Period (1-7)" min="1" max="7" required />
+        <select id="att-status">
+          <option value="Present">Present</option>
+          <option value="Absent">Absent</option>
+          <option value="On-Duty">On-Duty (OD)</option>
+        </select>
+        <button type="submit" class="btn-primary">Log Attendance</button>
+      </form>
+      <table>
+        <thead><tr><th>Date</th><th>Period</th><th>Roll No</th><th>Course</th><th>Status</th></tr></thead>
+        <tbody id="att-table-body"></tbody>
+      </table>
+    </div>
 
-    <!-- Notices Section -->
-    <h3>College Notices & Announcements</h3>
-    <form id="notice-form" class="form-grid admin-only">
-      <input type="text" id="notice-title" placeholder="Notice Title" required />
-      <input type="text" id="notice-content" placeholder="Announcement Details" required />
-      <button type="submit">Post Notice</button>
-    </form>
-    <div id="notices-list"></div>
+    <!-- TAB 3: CONTROLLER OF EXAMINATIONS (CoE) -->
+    <div id="exams-tab" class="panel">
+      <h3>Controller of Examinations — Marks & Autonomous Grading</h3>
+      <form id="exam-form" class="grid-form staff-only">
+        <input type="text" id="exam-roll" placeholder="Student Roll No" required />
+        <select id="exam-course"></select>
+        <input type="number" id="exam-internal" placeholder="Internal (Max 40)" min="0" max="40" required />
+        <input type="number" id="exam-external" placeholder="External (Max 60)" min="0" max="60" required />
+        <select id="exam-publish">
+          <option value="true">Publish Immediately</option>
+          <option value="false">Draft (CoE Hold)</option>
+        </select>
+        <button type="submit" class="btn-primary">Save Marks</button>
+      </form>
+      <table>
+        <thead><tr><th>Roll No</th><th>Course</th><th>Internal (40)</th><th>External (60)</th><th>Total (100)</th><th>Grade</th><th>Points</th><th>Status</th></tr></thead>
+        <tbody id="exam-table-body"></tbody>
+      </table>
+    </div>
 
-    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid #e2e8f0;" />
+    <!-- TAB 4: FEE & NO-DUES -->
+    <div id="fees-tab" class="panel">
+      <h3>Accounts Office — Semester Fee & No-Dues Clearance</h3>
+      <form id="fee-form" class="grid-form staff-only">
+        <input type="text" id="fee-roll" placeholder="Student Roll No" required />
+        <select id="fee-tuition">
+          <option value="Cleared">Tuition: Cleared</option>
+          <option value="Pending">Tuition: Pending</option>
+        </select>
+        <select id="fee-exam">
+          <option value="Cleared">Exam Fee: Cleared</option>
+          <option value="Pending">Exam Fee: Pending</option>
+        </select>
+        <button type="submit" class="btn-primary">Update No-Dues</button>
+      </form>
+      <table>
+        <thead><tr><th>Roll No</th><th>Semester</th><th>Tuition Fee</th><th>Exam Fee</th><th>Hall Ticket Clearance</th></tr></thead>
+        <tbody id="fee-table-body"></tbody>
+      </table>
+    </div>
 
-    <!-- Course Registration Section -->
-    <h3>Course Registration</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Course Name</th>
-          <th>Credits</th>
-          <th>Status / Action</th>
-        </tr>
-      </thead>
-      <tbody id="courses-table-body"></tbody>
-    </table>
+    <!-- TAB 5: PRINTABLE HALL TICKET & GRADE CARD -->
+    <div id="hallticket-tab" class="panel">
+      <div class="no-print" style="display:flex; gap:0.75rem; align-items:center; margin-bottom:1rem;">
+        <input type="text" id="ht-roll" placeholder="Enter Roll No (e.g., CS101)" />
+        <button class="btn-primary" onclick="generateHallTicket()">Generate Hall Ticket & Transcript</button>
+        <button class="btn-success" onclick="window.print()">Print / Save PDF</button>
+      </div>
+      <div id="ht-output"></div>
+    </div>
+
+    <!-- TAB 6: ACADEMIC CIRCULARS -->
+    <div id="notices-tab" class="panel">
+      <h3>Academic Council Circulars & Exam Notifications</h3>
+      <form id="notice-form" class="grid-form staff-only">
+        <input type="text" id="notice-title" placeholder="Circular Title" required />
+        <input type="text" id="notice-content" placeholder="Notification Details" required />
+        <button type="submit" class="btn-primary">Publish Circular</button>
+      </form>
+      <div id="notices-list"></div>
+    </div>
   </div>
 
   <script src="js/config.js"></script>
   <script>
-    // Protect route: redirect to login if no active session
-    async function checkAuth() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        window.location.href = 'index.html';
-      } else {
-        loadStudents();
-        loadNotices();
-        loadCourses();
-      }
+    let userRole = 'student';
+    const staffRoles = ['super_admin', 'coe', 'hod', 'faculty', 'accounts'];
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
     }
 
-    // Fetch and display students
-    async function loadStudents() {
-      const { data, error } = await supabaseClient.from('students').select('*').order('roll_number');
-      if (error) return console.error(error);
+    async function initERP() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) return (window.location.href = 'index.html');
 
-      const tbody = document.getElementById('student-table-body');
-      tbody.innerHTML = (data || []).map(s => `
+      const { data: roleRow } = await supabaseClient.from('user_roles').select('role').eq('user_id', session.user.id).single();
+      userRole = roleRow?.role || 'student';
+      document.getElementById('role-badge').textContent = `Role: ${userRole}`;
+
+      if (!staffRoles.includes(userRole)) {
+        document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'none');
+      }
+
+      await loadCoursesDropdown();
+      await Promise.all([loadStudents(), loadAttendance(), loadExams(), loadFees(), loadNotices()]);
+    }
+
+    async function loadCoursesDropdown() {
+      const { data } = await supabaseClient.from('courses').select('*');
+      const opts = (data || []).map(c => `<option value="${c.course_code}">${c.course_code} - ${c.course_name}</option>`).join('');
+      document.getElementById('att-course').innerHTML = opts;
+      document.getElementById('exam-course').innerHTML = opts;
+    }
+
+    async function loadStudents() {
+      const { data } = await supabaseClient.from('students').select('*').order('roll_number');
+      document.getElementById('student-table-body').innerHTML = (data || []).map(s => {
+        const att = Number(s.attendance_pct);
+        const elig = att >= 75 ? '<span class="status-ok">Eligible</span>' : (att >= 65 ? '<span class="status-warn">Condonation</span>' : '<span class="status-bad">Detained (<65%)</span>');
+        return `<tr><td><strong>${s.roll_number}</strong></td><td>${s.full_name}</td><td>${s.department}</td><td>${att}%</td><td>${elig}</td><td>${s.gpa}</td></tr>`;
+      }).join('');
+    }
+
+    document.getElementById('student-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { error } = await supabaseClient.from('students').insert([{
+        roll_number: document.getElementById('roll_number').value.trim(),
+        full_name: document.getElementById('full_name').value.trim(),
+        department: document.getElementById('department').value,
+        attendance_pct: parseFloat(document.getElementById('attendance_pct').value),
+        gpa: parseFloat(document.getElementById('gpa').value)
+      }]);
+      if (error) alert(error.message); else { e.target.reset(); loadStudents(); }
+    });
+
+    async function loadAttendance() {
+      const { data } = await supabaseClient.from('attendance_logs').select('*').order('class_date', { ascending: false }).limit(25);
+      document.getElementById('att-table-body').innerHTML = (data || []).map(a => `
+        <tr><td>${a.class_date}</td><td>P${a.period_no}</td><td>${a.roll_number}</td><td>${a.course_code}</td><td><strong>${a.status}</strong></td></tr>
+      `).join('');
+    }
+
+    document.getElementById('att-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { error } = await supabaseClient.from('attendance_logs').insert([{
+        roll_number: document.getElementById('att-roll').value.trim(),
+        course_code: document.getElementById('att-course').value,
+        period_no: parseInt(document.getElementById('att-period').value),
+        status: document.getElementById('att-status').value
+      }]);
+      if (error) alert(error.message); else { e.target.reset(); loadAttendance(); }
+    });
+
+    async function loadExams() {
+      const { data } = await supabaseClient.from('exam_results').select('*').order('roll_number');
+      document.getElementById('exam-table-body').innerHTML = (data || []).map(r => `
         <tr>
-          <td>${s.roll_number}</td>
-          <td>${s.full_name}</td>
-          <td>${s.department}</td>
-          <td>${s.attendance_pct}%</td>
-          <td>${s.gpa}</td>
+          <td>${r.roll_number}</td><td>${r.course_code}</td><td>${r.internal_marks}</td><td>${r.external_marks}</td>
+          <td><strong>${r.total_marks}</strong></td><td><strong>${r.grade_letter}</strong></td><td>${r.grade_points}</td>
+          <td>${r.is_published ? '<span class="status-ok">Published</span>' : '<span class="status-warn">CoE Hold</span>'}</td>
         </tr>
       `).join('');
     }
 
-    // Insert new student
-    document.getElementById('student-form').addEventListener('submit', async (e) => {
+    document.getElementById('exam-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const newStudent = {
-        roll_number: document.getElementById('roll_number').value,
-        full_name: document.getElementById('full_name').value,
-        department: document.getElementById('department').value,
-        attendance_pct: parseFloat(document.getElementById('attendance_pct').value),
-        gpa: parseFloat(document.getElementById('gpa').value)
-      };
-
-      const { error } = await supabaseClient.from('students').insert([newStudent]);
-      if (error) alert('Error: ' + error.message);
-      else {
-        e.target.reset();
-        loadStudents();
-      }
+      const { error } = await supabaseClient.from('exam_results').upsert([{
+        roll_number: document.getElementById('exam-roll').value.trim(),
+        course_code: document.getElementById('exam-course').value,
+        semester: 3,
+        internal_marks: parseFloat(document.getElementById('exam-internal').value),
+        external_marks: parseFloat(document.getElementById('exam-external').value),
+        is_published: document.getElementById('exam-publish').value === 'true'
+      }], { onConflict: 'roll_number,course_code,semester' });
+      if (error) alert(error.message); else { e.target.reset(); loadExams(); }
     });
 
-    // Fetch and display notices
+    async function loadFees() {
+      const { data } = await supabaseClient.from('fee_ledger').select('*').order('roll_number');
+      document.getElementById('fee-table-body').innerHTML = (data || []).map(f => {
+        const cleared = f.tuition_status === 'Cleared' && f.exam_fee_status === 'Cleared';
+        return `<tr><td>${f.roll_number}</td><td>Sem ${f.semester}</td><td>${f.tuition_status}</td><td>${f.exam_fee_status}</td><td>${cleared ? '<span class="status-ok">NO DUES</span>' : '<span class="status-bad">HOLD</span>'}</td></tr>`;
+      }).join('');
+    }
+
+    document.getElementById('fee-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { error } = await supabaseClient.from('fee_ledger').upsert([{
+        roll_number: document.getElementById('fee-roll').value.trim(),
+        semester: 3,
+        tuition_status: document.getElementById('fee-tuition').value,
+        exam_fee_status: document.getElementById('fee-exam').value
+      }], { onConflict: 'roll_number,semester' });
+      if (error) alert(error.message); else { e.target.reset(); loadFees(); }
+    });
+
+    async function generateHallTicket() {
+      const roll = document.getElementById('ht-roll').value.trim();
+      if (!roll) return alert('Enter a Roll Number');
+
+      const [{ data: stu }, { data: fee }, { data: results }] = await Promise.all([
+        supabaseClient.from('students').select('*').eq('roll_number', roll).single(),
+        supabaseClient.from('fee_ledger').select('*').eq('roll_number', roll).maybeSingle(),
+        supabaseClient.from('exam_results').select('*').eq('roll_number', roll).eq('is_published', true)
+      ]);
+
+      if (!stu) return alert('Student Roll Number not found.');
+      const attOk = Number(stu.attendance_pct) >= 75;
+      const feeOk = !fee || (fee.tuition_status === 'Cleared' && fee.exam_fee_status === 'Cleared');
+
+      document.getElementById('ht-output').innerHTML = `
+        <div class="hall-ticket-box">
+          <div style="text-align:center; border-bottom:2px solid #1e293b; padding-bottom:0.75rem;">
+            <h2 style="margin:0;">AUTONOMOUS UNIVERSITY — OFFICE OF THE CONTROLLER OF EXAMINATIONS</h2>
+            <p style="margin:0.25rem 0 0;">END-SEMESTER HALL TICKET & PROVISIONAL GRADE STATEMENT (REGULATION R26)</p>
+          </div>
+          <p><strong>Hall Ticket / Roll No:</strong> ${stu.roll_number} &nbsp;|&nbsp; <strong>Name:</strong> ${stu.full_name} &nbsp;|&nbsp; <strong>Branch:</strong> ${stu.department}</p>
+          <p><strong>Attendance:</strong> ${stu.attendance_pct}% (${attOk ? 'ELIGIBLE' : 'DETAINED'}) &nbsp;|&nbsp; <strong>No-Dues Status:</strong> ${feeOk ? 'CLEARED' : 'FEE PENDING'}</p>
+          ${(!attOk || !feeOk) ? `<p class="status-bad">HALL TICKET WITHHELD: Student must clear attendance/fee holds before downloading exam permit.</p>` : `<p class="status-ok">PERMITTED TO APPEAR FOR END-SEMESTER EXAMINATIONS</p>`}
+          <table>
+            <thead><tr><th>Course Code</th><th>Internal (40)</th><th>External (60)</th><th>Total (100)</th><th>Grade</th><th>Grade Points</th></tr></thead>
+            <tbody>
+              ${(results && results.length) ? results.map(r => `<tr><td>${r.course_code}</td><td>${r.internal_marks}</td><td>${r.external_marks}</td><td>${r.total_marks}</td><td>${r.grade_letter}</td><td>${r.grade_points}</td></tr>`).join('') : '<tr><td colspan="6">No published examination results available yet.</td></tr>'}
+            </tbody>
+          </table>
+          <div style="display:flex; justify-content:space-between; margin-top:3rem;">
+            <span>Signature of Candidate</span>
+            <span>Controller of Examinations (Seal)</span>
+          </div>
+        </div>
+      `;
+    }
+
     async function loadNotices() {
       const { data } = await supabaseClient.from('notices').select('*').order('created_at', { ascending: false });
       document.getElementById('notices-list').innerHTML = (data || []).map(n => `
-        <div style="background:#f1f5f9; padding:0.75rem 1rem; border-radius:6px; margin-bottom:0.5rem;">
-          <strong>${n.title}</strong>
-          <p style="margin:0.25rem 0 0; font-size:0.9rem;">${n.content}</p>
+        <div style="background:#f8fafc; border-left:4px solid #1e3a8a; padding:0.75rem 1rem; margin-bottom:0.5rem;">
+          <strong>${n.title}</strong><p style="margin:0.25rem 0 0; font-size:0.9rem;">${n.content}</p>
         </div>
       `).join('');
     }
 
-    // Post a new notice (admin only via RLS)
     document.getElementById('notice-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const { error } = await supabaseClient.from('notices').insert([{
+      await supabaseClient.from('notices').insert([{
         title: document.getElementById('notice-title').value,
         content: document.getElementById('notice-content').value
       }]);
-      if (error) alert('Error: ' + error.message);
-      else {
-        e.target.reset();
-        loadNotices();
-      }
+      e.target.reset(); loadNotices();
     });
-
-    // Fetch courses and user enrollment status
-    async function loadCourses() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const { data: courses } = await supabaseClient.from('courses').select('*');
-      const { data: enrolled } = await supabaseClient.from('enrollments').select('course_code').eq('user_id', session.user.id);
-      const enrolledCodes = new Set((enrolled || []).map(e => e.course_code));
-
-      document.getElementById('courses-table-body').innerHTML = (courses || []).map(c => {
-        const isRegistered = enrolledCodes.has(c.course_code);
-        return `
-          <tr>
-            <td>${c.course_code}</td>
-            <td>${c.course_name}</td>
-            <td>${c.credits}</td>
-            <td>
-              ${isRegistered
-                ? `<span style="color:#16a34a; font-weight:bold;">Registered</span>`
-                : `<button onclick="registerCourse('${c.course_code}')">Register</button>`}
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // Register for a course
-    async function registerCourse(courseCode) {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const { error } = await supabaseClient.from('enrollments').insert([{ user_id: session.user.id, course_code: courseCode }]);
-      if (error) alert(error.message);
-      else loadCourses();
-    }
 
     async function logout() {
       await supabaseClient.auth.signOut();
       window.location.href = 'index.html';
     }
 
-    checkAuth();
+    initERP();
   </script>
 </body>
 </html>

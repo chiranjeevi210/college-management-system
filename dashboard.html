@@ -161,7 +161,33 @@
       <div id="notices-list"></div>
     </div>
   </div>
+<!-- TAB 7: AUTONOMOUS UNIVERSITY SYLLABUS & CBCS CURRICULUM -->
+    <div id="syllabus-tab" class="panel">
+      <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
+        <div>
+          <h3 style="margin:0;">Regulation R26 — CBCS Curriculum & Detailed Syllabus</h3>
+          <p style="margin:0.25rem 0 0; font-size:0.85rem; color:#475569;">Select a department or click any course to view Course Outcomes (COs) and 5-Unit Syllabus.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <select id="syl-dept-filter" onchange="renderSyllabusList()">
+            <option value="ALL">All Departments</option>
+            <option value="CSE">CSE</option>
+            <option value="AIML">AIML</option>
+            <option value="ECE">ECE</option>
+          </select>
+          <button class="btn-success" onclick="window.print()">Print Syllabus</button>
+        </div>
+      </div>
 
+      <table>
+        <thead>
+          <tr><th>Code</th><th>Course Title</th><th>Dept</th><th>Category</th><th>L-T-P</th><th>Credits</th><th class="no-print">Syllabus</th></tr>
+        </thead>
+        <tbody id="syllabus-table-body"></tbody>
+      </table>
+
+      <div id="syllabus-detail-box" style="margin-top:1.5rem;"></div>
+    </div>
   <script src="js/config.js"></script>
   <script>
     let userRole = 'student';

@@ -11,10 +11,10 @@
     .topbar { background: var(--primary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
     .topbar h1 { margin: 0; font-size: 1.25rem; }
     .role-pill { background: rgba(255,255,255,0.2); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-left: 0.75rem; }
-    .nav-tabs { background: white; border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; gap: 0.5rem; overflow-x: auto; }
-    .tab-btn { background: none; border: none; padding: 1rem 1.25rem; font-weight: 600; color: #475569; cursor: pointer; border-bottom: 3px solid transparent; }
+    .nav-tabs { background: white; border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; gap: 0.25rem; overflow-x: auto; }
+    .tab-btn { background: none; border: none; padding: 1rem 1rem; font-weight: 600; color: #475569; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
     .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+    .main { max-width: 1150px; margin: 1.5rem auto; padding: 0 1rem; }
     .panel { display: none; background: var(--card); padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     .panel.active { display: block; }
     .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
@@ -53,6 +53,7 @@
     <button class="tab-btn" onclick="switchTab('fees-tab', this)">4. Fee & No-Dues</button>
     <button class="tab-btn" onclick="switchTab('hallticket-tab', this)">5. Hall Ticket & Grade Card</button>
     <button class="tab-btn" onclick="switchTab('notices-tab', this)">6. Academic Circulars</button>
+    <button class="tab-btn" onclick="switchTab('syllabus-tab', this)">7. Regulation R26 Syllabus</button>
   </div>
 
   <div class="main">
@@ -143,7 +144,7 @@
     <!-- TAB 5: PRINTABLE HALL TICKET & GRADE CARD -->
     <div id="hallticket-tab" class="panel">
       <div class="no-print" style="display:flex; gap:0.75rem; align-items:center; margin-bottom:1rem;">
-        <input type="text" id="ht-roll" placeholder="Enter Roll No (e.g., CS101)" />
+        <input type="text" id="ht-roll" placeholder="Enter Roll No (e.g., 26A91A0501)" />
         <button class="btn-primary" onclick="generateHallTicket()">Generate Hall Ticket & Transcript</button>
         <button class="btn-success" onclick="window.print()">Print / Save PDF</button>
       </div>
@@ -160,8 +161,8 @@
       </form>
       <div id="notices-list"></div>
     </div>
-  </div>
-<!-- TAB 7: AUTONOMOUS UNIVERSITY SYLLABUS & CBCS CURRICULUM -->
+
+    <!-- TAB 7: AUTONOMOUS UNIVERSITY SYLLABUS & CBCS CURRICULUM -->
     <div id="syllabus-tab" class="panel">
       <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
         <div>
@@ -188,9 +189,12 @@
 
       <div id="syllabus-detail-box" style="margin-top:1.5rem;"></div>
     </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script>
     let userRole = 'student';
+    let allCoursesCache = [];
     const staffRoles = ['super_admin', 'coe', 'hod', 'faculty', 'accounts'];
 
     function switchTab(tabId, btn) {
@@ -212,15 +216,77 @@
         document.querySelectorAll('.staff-only').forEach(el => el.style.display = 'none');
       }
 
-      await loadCoursesDropdown();
+      await loadCoursesAndSyllabus();
       await Promise.all([loadStudents(), loadAttendance(), loadExams(), loadFees(), loadNotices()]);
     }
 
-    async function loadCoursesDropdown() {
-      const { data } = await supabaseClient.from('courses').select('*');
-      const opts = (data || []).map(c => `<option value="${c.course_code}">${c.course_code} - ${c.course_name}</option>`).join('');
+    async function loadCoursesAndSyllabus() {
+      const { data } = await supabaseClient.from('courses').select('*').order('course_code');
+      allCoursesCache = data || [];
+      const opts = allCoursesCache.map(c => `<option value="${c.course_code}">${c.course_code} - ${c.course_name}</option>`).join('');
       document.getElementById('att-course').innerHTML = opts;
       document.getElementById('exam-course').innerHTML = opts;
+      renderSyllabusList();
+      if (allCoursesCache.length) viewCourseSyllabus(allCoursesCache[0].course_code);
+    }
+
+    function renderSyllabusList() {
+      const dept = document.getElementById('syl-dept-filter').value;
+      const filtered = dept === 'ALL' ? allCoursesCache : allCoursesCache.filter(c => c.dept_code === dept);
+
+      document.getElementById('syllabus-table-body').innerHTML = filtered.map(c => `
+        <tr>
+          <td><strong>${c.course_code}</strong></td>
+          <td>${c.course_name}</td>
+          <td>${c.dept_code || 'CSE'}</td>
+          <td>${c.course_type || 'Core'}</td>
+          <td>${c.ltp || '3-0-0'}</td>
+          <td>${c.credits}</td>
+          <td class="no-print"><button class="btn-primary" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="viewCourseSyllabus('${c.course_code}')">View Units</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function viewCourseSyllabus(code) {
+      const c = allCoursesCache.find(item => item.course_code === code);
+      if (!c) return;
+
+      const cos = Array.isArray(c.course_outcomes) ? c.course_outcomes : [];
+      const units = Array.isArray(c.syllabus_units) ? c.syllabus_units : [];
+
+      document.getElementById('syllabus-detail-box').innerHTML = `
+        <div class="hall-ticket-box">
+          <div style="border-bottom:2px solid #1e3a8a; padding-bottom:0.75rem; margin-bottom:1rem;">
+            <span style="background:#dbeafe; color:#1e3a8a; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.8rem; font-weight:700;">REGULATION ${c.reg_code || 'R26'} | SEMESTER ${c.semester || 3}</span>
+            <h2 style="margin:0.5rem 0 0.25rem;">${c.course_code}: ${c.course_name}</h2>
+            <p style="margin:0; font-size:0.9rem; color:#334155;"><strong>Department:</strong> ${c.dept_code} &nbsp;|&nbsp; <strong>Category:</strong> ${c.course_type} &nbsp;|&nbsp; <strong>L-T-P:</strong> ${c.ltp || '3-0-0'} &nbsp;|&nbsp; <strong>Credits:</strong> ${c.credits}</p>
+          </div>
+
+          <p><strong>Course Objectives:</strong> ${c.course_objectives || 'Standard autonomous curriculum objectives.'}</p>
+
+          <h4>Course Outcomes (COs)</h4>
+          <ul style="margin-top:0.25rem; line-height:1.6;">
+            ${cos.length ? cos.map(co => `<li>${co}</li>`).join('') : '<li>Course outcomes defined by Board of Studies (BoS).</li>'}
+          </ul>
+
+          <h4>Detailed 5-Unit Syllabus</h4>
+          <table>
+            <thead><tr><th style="width:12%;">Unit</th><th style="width:26%;">Module Title</th><th style="width:10%;">Hours</th><th>Topics Covered</th></tr></thead>
+            <tbody>
+              ${units.length ? units.map(u => `
+                <tr>
+                  <td><strong>${u.unit}</strong></td>
+                  <td><strong>${u.title}</strong></td>
+                  <td>${u.hours} Hrs</td>
+                  <td>${u.topics}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="4">Detailed unit breakdown pending Board of Studies upload.</td></tr>'}
+            </tbody>
+          </table>
+
+          <p style="margin-top:1rem; font-size:0.9rem;"><strong>Prescribed Textbooks:</strong> ${c.textbooks || 'Standard reference texts as approved by Academic Council.'}</p>
+        </div>
+      `;
     }
 
     async function loadStudents() {
@@ -319,6 +385,16 @@
       const attOk = Number(stu.attendance_pct) >= 75;
       const feeOk = !fee || (fee.tuition_status === 'Cleared' && fee.exam_fee_status === 'Cleared');
 
+      // Compute Semester SGPA from published results & course credits
+      let totalCredits = 0, weightedPoints = 0;
+      (results || []).forEach(r => {
+        const course = allCoursesCache.find(c => c.course_code === r.course_code);
+        const cr = course ? Number(course.credits) : 3;
+        totalCredits += cr;
+        weightedPoints += cr * Number(r.grade_points || 0);
+      });
+      const sgpa = totalCredits > 0 ? (weightedPoints / totalCredits).toFixed(2) : 'N/A';
+
       document.getElementById('ht-output').innerHTML = `
         <div class="hall-ticket-box">
           <div style="text-align:center; border-bottom:2px solid #1e293b; padding-bottom:0.75rem;">
@@ -334,6 +410,7 @@
               ${(results && results.length) ? results.map(r => `<tr><td>${r.course_code}</td><td>${r.internal_marks}</td><td>${r.external_marks}</td><td>${r.total_marks}</td><td>${r.grade_letter}</td><td>${r.grade_points}</td></tr>`).join('') : '<tr><td colspan="6">No published examination results available yet.</td></tr>'}
             </tbody>
           </table>
+          <p style="margin-top:1rem; font-size:1rem;"><strong>Semester Grade Point Average (SGPA):</strong> ${sgpa} &nbsp;|&nbsp; <strong>Cumulative GPA (CGPA):</strong> ${stu.gpa}</p>
           <div style="display:flex; justify-content:space-between; margin-top:3rem;">
             <span>Signature of Candidate</span>
             <span>Controller of Examinations (Seal)</span>
